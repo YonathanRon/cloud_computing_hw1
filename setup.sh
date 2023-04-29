@@ -12,7 +12,6 @@ sudo apt install python3-pip -y
 sudo pip3 install --upgrade pip
 
 # Install necessary packages
-sudo pip3 install sqlite
 sudo pip3 install fastapi
 sudo pip3 install db
 sudo pip3 install db-sqlite3
