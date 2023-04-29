@@ -25,4 +25,19 @@ aws configure
 cd cloud_computing_hw1
 
 # Start the FastAPI server
-nohup uvicorn parking_lot:app --host 127.0.0.1 --port 8000 &
+nohup uvicorn main:app --host 0.0.0.0 --port 8000 &
+
+# Save the PID of the last command executed
+echo $! > server.pid
+
+# Wait for the server to start
+sleep 3
+
+# Print the logs
+tail -f nohup.out
+
+
+
+
+
+
