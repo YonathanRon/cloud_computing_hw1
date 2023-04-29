@@ -1,6 +1,6 @@
 #!/bin/bash
 # Clone your application from Git
-#git clone https://github.com/YonathanRon/cloud_computing_hw1.git
+git clone https://github.com/YonathanRon/cloud_computing_hw1.git
 
 sudo apt-get update -y
 sudo apt-get upgrade -y
@@ -19,10 +19,10 @@ pip3 install uvicorn
 #aws configure
 #
 ## Change to your application directory
-#cd cloud_computing_hw1
+cd cloud_computing_hw1
 #
 ## Start the FastAPI server
-#uvicorn main:app --host 0.0.0.0 --port 80 &
+uvicorn main:app --host 0.0.0.0 --port 8000 
 #
 ## Save the PID of the last command executed
 #echo $! > server.pid
