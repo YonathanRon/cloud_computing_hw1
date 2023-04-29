@@ -1,16 +1,12 @@
 from fastapi import FastAPI, HTTPException
-import sqlite3 as sql
 import uvicorn
 from datetime import datetime
 
+from parking_db_manager import create_db, add_car_to_parking_lot, finish_parking_session
+
 app = FastAPI()
 
-conn = sql.connect('parking_records.db')
-cur = conn.cursor()
-cur.execute(f'CREATE TABLE IF NOT EXISTS parking_records (id INTEGER PRIMARY KEY, plate VARCHAR(100) NOT NULL, parking_lot VARCHAR(100) NOT NULL, entry_time VARCHAR(100) NOT NULL);')
-
-
-
+create_db()
 def calculate_charge(entry_time, exit_time):
     diff = exit_time - entry_time
     hours = diff.total_seconds() / 3600
@@ -21,44 +17,35 @@ def calculate_charge(entry_time, exit_time):
 
 @app.post("/entry/{plate}/{parking_lot}")
 async def entry(plate: str, parking_lot: str):
+    print("plate {} for parking lot {}".format(plate, parking_lot))
     entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn = sql.connect('parking_records.db')
-    c = conn.cursor()
-    c.execute('INSERT INTO parking_records (plate, parking_lot, entry_time) VALUES (?, ?, ?);',
-              (plate, parking_lot, entry_time))
-
-    ticket_id = c.lastrowid
-
-    conn.commit()
-    conn.close()
-    return {"ticket_id": ticket_id}
+    ticket_id = add_car_to_parking_lot(plate, parking_lot, entry_time)
+    if ticket_id > 0:
+        response_json = {"ticket_id": ticket_id}
+        response_status = 200
+    else:
+        print("Failed")
+        response_json = {"status_message": "Failed to insert cat {}".format(plate)}
+        response_status = 500
+    return response_json, response_status
 
 
 @app.post("/exit/{ticket_id}")
 async def exit(ticket_id: int):
-
-    conn = sql.connect('parking_records.db')
-    cur = conn.cursor()
-    cur.execute(f'SELECT * FROM parking_records WHERE id = {ticket_id}')
-    rows = cur.fetchall()
-
-    if len(rows) < 1:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-
-    id, plate, parking_lot, entry_time = rows[0]
-    entry_time = datetime.strptime(entry_time, "%Y-%m-%d %H:%M:%S")
-    exit_time = datetime.now()
-    charge = calculate_charge(entry_time, exit_time)
-    total_parked_time = str(exit_time - entry_time)
-    cur.execute('DELETE FROM parking_records WHERE id=?;', (ticket_id,))
-    conn.commit()
-    conn.close()
-
-    return {"license_plate": plate,
-            "total_parked_time": total_parked_time,
-            "parking_lot_id": parking_lot,
-            "charge": f'{charge}$'}
-
+    id, plate, parking_lot, entry_time = finish_parking_session(ticket_id)
+    if all([x != -1 for x in [ id, plate, parking_lot, entry_time]]):
+        entry_time = datetime.strptime(entry_time, "%Y-%m-%d %H:%M:%S")
+        exit_time = datetime.now()
+        charge = calculate_charge(entry_time, exit_time)
+        total_parked_time = str(exit_time - entry_time)
+        response_json = {"license_plate": plate,
+                "total_parked_time": total_parked_time,
+                "parking_lot_id": parking_lot,
+                "charge": f'{charge}$'}
+        response_status = 200
+    else:
+        raise HTTPException(501, "Ticket {} not found".format(ticket_id))
+    return response_json, response_status
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8001)
