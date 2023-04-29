@@ -22,7 +22,7 @@ pip3 install uvicorn
 cd cloud_computing_hw1
 #
 ## Start the FastAPI server
-uvicorn main:app --host 0.0.0.0 --port 8000 
+python3 main.py
 #
 ## Save the PID of the last command executed
 #echo $! > server.pid
