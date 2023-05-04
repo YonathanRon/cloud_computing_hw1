@@ -23,18 +23,5 @@ cd cloud_computing_hw1
 #
 ## Start the FastAPI server
 python3 main.py
-#
-## Save the PID of the last command executed
-#echo $! > server.pid
-#
-## Wait for the server to start
-#sleep 3
-#
-## Print the logs
-#tail -f nohup.out
-
-
-
-
 
 
