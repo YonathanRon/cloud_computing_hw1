@@ -6,7 +6,7 @@ Before running the program, you need to install the following:
 * pip3
 * AWS CLI
 
-#### To install the required Python packages, run the following command:
+#### To install the required Python packages, run the following command: (or just run the "init.sh" script)
 ```bash
 pip3 install boto3
 ```
