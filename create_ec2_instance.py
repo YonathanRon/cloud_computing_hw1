@@ -44,17 +44,22 @@ def get_user_data(setup_file_path=SETUP_FILE):
 
 
 def create_key(key_name='parkingLotServer'):
-    # Create a new key pair
     try:
         existing_key_pairs = ec2.describe_key_pairs(Filters=[{'Name': 'key-name', 'Values': [key_name]}])['KeyPairs']
         if len(existing_key_pairs) > 0:
             # The key pair already exists, so just use it
             key_name = existing_key_pairs[0]['KeyName']
+        else:
+            key_pair_response = ec2.create_key_pair(KeyName=key_name)
+            key_name = key_pair_response['KeyName']
     except ec2.exceptions.ClientError as e:
-        print(f'Going to create key name - {key_name}')
-        # The key pair doesn't exist yet, so create a new one
-        key_pair_response = ec2.create_key_pair(KeyName=key_name)
-        key_name = key_pair_response['KeyName']
+        if e.response['Error']['Code'] == 'InvalidKeyPair.NotFound':
+            print(f'Going to create key name - {key_name}')
+            # The key pair doesn't exist yet, so create a new one
+            key_pair_response = ec2.create_key_pair(KeyName=key_name)
+            key_name = key_pair_response['KeyName']
+        else:
+            raise e
     return key_name
 
 
