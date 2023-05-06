@@ -9,21 +9,26 @@ ec2 = boto3.client('ec2')
 
 
 # Get the default VPC ID
-def get_security_group():
-    vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}])['Vpcs']
-    vpc_id = vpcs[0]['VpcId']
+def get_security_group_id():
+    sg_name = 'parkingLotServer'
 
-    # Retrieve the default security group associated with the default VPC
-    security_groups = ec2.describe_security_groups(
-        Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}, {'Name': 'group-name', 'Values': ['default']}])[
-        'SecurityGroups']
+    try:
+        response = ec2.describe_security_groups(GroupNames=[sg_name])
+        security_group_id = response['SecurityGroups'][0]['GroupId']
+        print(f"Security group {sg_name} already exists with ID {security_group_id}")
 
-    # Extract the ID of the default security group
-    default_security_group_id = security_groups[0]['GroupId']
-
-    # Print the ID of the default security group
-    return default_security_group_id
-
+    except ec2.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == 'InvalidGroup.NotFound':
+            print(f"Creating security group {sg_name}...")
+            response = ec2.create_security_group(
+                GroupName=sg_name,
+                Description='Security group for parking lot server'
+            )
+            security_group_id = response['GroupId']
+            print(f"Security group {sg_name} created with ID {security_group_id}")
+        else:
+            raise e
+    return security_group_id
 
 def get_user_data(setup_file_path=SETUP_FILE):
     if setup_file_path:
@@ -35,7 +40,7 @@ def get_user_data(setup_file_path=SETUP_FILE):
         return user_data
 
 
-def create_key(key_name='just_a_test'):
+def create_key(key_name='parkingLotServer'):
     # Create a new key pair
     existing_key_pairs = ec2.describe_key_pairs(Filters=[{'Name': 'key-name', 'Values': [key_name]}])['KeyPairs']
     if len(existing_key_pairs) > 0:
@@ -50,16 +55,20 @@ def create_key(key_name='just_a_test'):
 
 def create_e2c_instance():
     # Launch the new instance
-    response = ec2.run_instances(
-        ImageId=IMAGE_ID,
-        InstanceType=INSTANCE_TYPE,
-        KeyName=create_key(),
-        MinCount=1,
-        MaxCount=1,
-        SecurityGroupIds=[get_security_group()],
-        # SubnetId=subnet_id,
-        UserData=get_user_data()
-    )
+    response = None
+    try:
+        print("Creating ec2 instance with IMAGE ID {} INSTANCE TYPE {}".format(IMAGE_ID, INSTANCE_TYPE))
+        response = ec2.run_instances(
+            ImageId=IMAGE_ID,
+            InstanceType=INSTANCE_TYPE,
+            KeyName=create_key(),
+            MinCount=1,
+            MaxCount=1,
+            SecurityGroupIds=[get_security_group_id()],
+            UserData=get_user_data()
+        )
+    except Exception as ex:
+        print("Cought error when trying to run instance {}".format(ex))
     return response
 
 
@@ -67,19 +76,19 @@ def create_e2c_instance():
 # security_group_id = 'sg-03608bebda3135d45'
 
 def adjust_security_inbound():
-    security_group_id = get_security_group()
+    security_group_id = get_security_group_id()
     # specify the port to open
     ports = [8000, 22]
     try:
         response = ec2.describe_security_groups(GroupIds=[security_group_id])
         existing_rules = response['SecurityGroups'][0]['IpPermissions']
         for port in ports:
-            for rule in existing_rules:
-                if rule['IpProtocol'] == 'tcp' and rule['FromPort'] == port and rule['ToPort'] == port and \
-                        {'CidrIp': '0.0.0.0/0'} in rule['IpRanges']:
-                    print(f'Inbound rule for port {port} already exists.')
-                    break
+                if any([rule['IpProtocol'] == 'tcp' and rule['FromPort'] == port and rule['ToPort'] == port and \
+                        {'CidrIp': '0.0.0.0/0'} in rule['IpRanges'] for rule in existing_rules]):
+                    print(f"Inbound rule for port {port} already exists.")
+                    continue
                 else:
+                    print(f"Inbound rule for port {port} not exists, going to add it")
                     # add inbound rule to security group
                     response = ec2.authorize_security_group_ingress(
                         GroupId=security_group_id,
@@ -101,16 +110,18 @@ def adjust_security_inbound():
         print("OUI! Something went wrong {}".format(ex))
 
 
-response = create_e2c_instance()
+create_response = create_e2c_instance()
 adjust_security_inbound()
-print(response)
-instance_id = response['Instances'][0]['InstanceId']
+print(create_response)
+instance_id = create_response['Instances'][0]['InstanceId']
+
 
 # Print the ID of the new instance
-print('Created instance with ID: ' + instance_id)
+# print(f'Created instance with ID: {instance_id}')
 
 # Wait for the instance to be ready to use
 print("Waiting for the instance to be ready...")
 time.sleep(30)  # Wait for 30 seconds for the instance to fully initialize
 
 print(f"Instance {instance_id} is now ready to use.")
+
