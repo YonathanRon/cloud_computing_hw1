@@ -34,7 +34,7 @@ git clone https://github.com/YonathanRon/cloud_computing_hw1.git
 cd cloud_computing_hw1
 python3 create_ec2_instance.py
 ```
-Run the Python script that creates the EC2 instance and deploys the server:
+
 The script will create a dedicated security group and key pair for the new instance if they don't already exist, and will then launch the instance and deploy the server on port 8000. Once the instance is launched, you can access the server by navigating to its public IP address in a web browser.
 
 Note: make sure to terminate the instance when you are done using it to avoid incurring charges.
